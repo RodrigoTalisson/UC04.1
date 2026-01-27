@@ -1,92 +1,102 @@
+// Importa o model que contém a lógica de dados dos alunos
 import { AlunoModel } from "../models/aluno/AlunoModel.js";
 
+// Controller é responsável por receber requisições HTTP e enviar respostas
 export class AlunoController {
 
+  // Lista todos os alunos - GET /alunos
   static listarAlunos(req, res) {
-    res.status(200).json(AlunoModel.listarTodos());
+    return res.status(200).json(AlunoModel.listarTodos());
   }
 
+  // Busca um aluno específico pelo ID - GET /alunos/:id
   static buscarPorId(req, res) {
     const aluno = AlunoModel.buscarPorId(req.params.id);
 
     if (!aluno) {
-      return res.status(404).json({ mensagem: "Aluno não encontrado" });
+      return res.status(404).json({ msg: "Aluno não encontrado" });
     }
 
-    res.status(200).json(aluno);
+    return res.status(200).json(aluno);
   }
 
-  static buscarPorCurso(req, res) {
-    const alunos = AlunoModel.buscarPorCurso(req.params.curso);
-    res.status(200).json(alunos);
-  }
-
-  static buscarPorIdade(req, res) {
-    const idade = Number(req.params.idade);
-
-    if (idade < 16) {
-      return res.status(400).json({ mensagem: "Idade não pode ser menor de 16 anos" });
-    }
-
-    const alunos = AlunoModel.buscarPorIdade(idade);
-    res.status(200).json(alunos);
-  }
-
-  static buscarPorMatricula(req, res) {
-    const aluno = AlunoModel.buscarPorMatricula(req.params.matricula);
-
-    if (!aluno) {
-      return res.status(404).json({ mensagem: "Aluno não encontrado" });
-    }
-
-    res.status(200).json(aluno);
-  }
-
+  // Cria um novo aluno - POST /alunos
   static criarAluno(req, res) {
+    // Extrai os dados do corpo da requisição
     const { nome, idade, curso, matricula } = req.body;
 
+    // Valida se todos os campos foram preenchidos
     if (!nome || !idade || !curso || !matricula) {
-      return res.status(400).json({ mensagem: "Preencha todos os campos" });
+      return res.status(400).json({ msg: "Todos os campos são obrigatórios" });
     }
 
+    // Valida se a idade é maior ou igual a 16
     if (idade < 16) {
-      return res.status(400).json({ mensagem: "Idade mínima é 16 anos" });
+      return res.status(400).json({ msg: "Idade mínima é 16 anos" });
     }
 
-    const novoAluno = AlunoModel.criarAluno(nome, idade, curso, matricula);
-
-    if (!novoAluno) {
-      return res.status(400).json({ mensagem: "Matrícula já existente" });
+    // Verifica se a matrícula já existe
+    if (AlunoModel.buscarPorMatricula(matricula)) {
+      return res.status(400).json({ msg: "Matrícula já existe" });
     }
 
-    res.status(201).json(novoAluno);
+    // Cria o aluno no banco de dados
+    const aluno = AlunoModel.criar({ nome, idade, curso, matricula });
+
+    // Retorna status 201 (Created) com os dados do aluno criado
+    return res.status(201).json({
+      msg: "Aluno criado com sucesso",
+      aluno
+    });
   }
 
+  // Atualiza os dados de um aluno - PUT /alunos/:id
   static atualizarAluno(req, res) {
+    const { id } = req.params;
     const { nome, idade, curso, matricula } = req.body;
 
-    const alunoAtualizado = AlunoModel.atualizarAluno(
-      req.params.id,
-      nome,
-      idade,
-      curso,
-      matricula
-    );
-
-    if (!alunoAtualizado) {
-      return res.status(404).json({ mensagem: "Aluno não encontrado" });
-    }
-
-    res.status(200).json(alunoAtualizado);
-  }
-
-  static deletarAluno(req, res) {
-    const aluno = AlunoModel.deletarAluno(req.params.id);
+    // Busca o aluno que será atualizado
+    const aluno = AlunoModel.buscarPorId(id);
 
     if (!aluno) {
-      return res.status(404).json({ mensagem: "Aluno não encontrado" });
+      return res.status(404).json({ msg: "Aluno não encontrado" });
     }
 
-    res.status(200).json({ mensagem: "Aluno removido com sucesso" });
+    // Valida a idade mínima
+    if (idade < 16) {
+      return res.status(400).json({ msg: "Idade mínima é 16 anos" });
+    }
+
+    // Verifica se a nova matrícula já existe em outro aluno
+    const matriculaExiste = AlunoModel.buscarPorMatricula(matricula);
+
+    if (matriculaExiste && matriculaExiste.id != id) {
+      return res.status(400).json({ msg: "Matrícula já usada por outro aluno" });
+    }
+
+    // Atualiza os dados do aluno
+    aluno.nome = nome;
+    aluno.idade = idade;
+    aluno.curso = curso;
+    aluno.matricula = matricula;
+
+    return res.status(200).json({
+      msg: "Aluno atualizado com sucesso",
+      aluno
+    });
+  }
+
+  // Deleta um aluno - DELETE /alunos/:id
+  static deletarAluno(req, res) {
+    const aluno = AlunoModel.deletar(req.params.id);
+
+    if (!aluno) {
+      return res.status(404).json({ msg: "Aluno não encontrado" });
+    }
+
+    return res.status(200).json({
+      msg: "Aluno removido com sucesso",
+      aluno
+    });
   }
 }
